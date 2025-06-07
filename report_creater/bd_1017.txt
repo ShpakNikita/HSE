@@ -1,0 +1,41 @@
+with t as 
+	(
+	select
+--	count(distinct acdb_id)
+		timestamp_confirm, 
+		offer_code,
+		product_code, 
+		regexp_split_to_table(status_descr, '; ') as status_descr, 
+		acdb_id
+	from cidb.t_product_offer_list tpol 
+	where 
+--		gateway_code = 147
+		offer_code in (select code from cidb.d_offer_catalog doc left join cidb.d_product_offer_catalog_online dpoco on dpoco.partner_code = doc.partner_code where doc.active_flag and dpoco.active_flag and dpoco.product_code is not null )
+		and timestamp_confirm >=current_date-14  --'2022-12-09'---current_date - 30 
+		and status in(1017, 1016) 
+	)
+, t1 as 
+	(
+	select  
+	offer_code  ,
+		case 
+			when position('=' in status_descr) = 0 then status_descr 
+			else left(status_descr,  position('=' in status_descr)-1) 
+		end as status_descr, 
+		count (distinct acdb_id) as kol
+	from t 
+	where 
+		status_descr not ilike '%  %'
+	group by 
+	offer_code,
+		case 
+			when position('=' in status_descr) = 0 
+			then status_descr 
+			else left(status_descr,  position('=' in status_descr)-1) 
+		end  
+	)
+	select 	dpc."name", dpt."name", t1.offer_code, t1.status_descr, t1.kol from t1
+	left join cidb.d_offer_catalog doc2 on doc2.code = t1.offer_code
+	left join cidb.d_partner_catalog dpc on doc2.partner_code = dpc.code 
+	left join sandbox.d_product_type dpt on dpt.code = doc2.product_type_code 
+	where t1.status_descr  not ilike ''

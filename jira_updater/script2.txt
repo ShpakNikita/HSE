@@ -1,0 +1,247 @@
+with main as (
+select 
+	concat('<b><u>Оффер: ',doc.code, '</u></b><br>') as code, 
+	--concat('<b>Код банка-партнера:</b> ', doc.partner_code, '<br>') as partner_code,
+	concat('<b>Тип продукта:</b> ', dpt."name", '<br>') as product_type_code,
+	concat('<b>Минимальный возраст:</b> ', coalesce(doc.age_min::varchar, 'УДАЛИТЬ СТРОКУ!!!'),'<br>') as age_min,
+	concat('<b>Максимальный возраст:</b> ', coalesce(doc.age_max::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as age_max,
+	concat('<b>Доход от:</b> ', coalesce(doc.incomes_from::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as incomes_from,
+	concat('<b>Запрошенная сумма от:</b> ', coalesce(doc.requested_amount_from::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as requested_amount_from,
+	concat('<b>Запрошенная сумма до:</b> ', coalesce(doc.requested_amount_to::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as requested_amount_to,
+	concat('<b>Расходы до:</b> ', coalesce(doc.expenses_to::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as expenses_to,
+	concat('<b>Коэффициент отношения расходов (нынешних) к доходам:</b> ', coalesce(doc.kfn::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as kfn,
+	concat('<b>Каскад:</b> ', case when coalesce(doc.cascade_flag, false) then 'Включен' else 'Не включен' end, '<br>') as cascade_flag,
+	unnest(coalesce(education_code, '{0}')) as education_code,
+	concat('<b>Коэффициент отношения расходов (нынешних с учетом будущего платежа) к доходам:</b> ', coalesce(doc.kfn_probably::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as kfn_probably,
+	concat('<b>Минимальный запрашиваемый срок (в месяцах):</b> ', coalesce(doc.term_min::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as term_min,
+	concat('<b>Максимальный запрашиваемый срок (в месяцах):</b> ', coalesce(doc.term_max::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as term_max,
+	unnest(coalesce(seniority_type, '{0}')) as seniority_type,
+	unnest(coalesce(job_type, '{0}')) as job_type,
+	unnest(coalesce(employer_type_code, '{0}')) as employer_type_code,
+	concat('<b>Бюро 1 от:</b> ', coalesce(dosp.min_score::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as min_score,
+	concat('<b>Бюро 1 от:</b> ', coalesce(dosp.min_bch_score::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as min_bch_score,
+	concat('<b>Application Score от:</b> ', coalesce(dosp.min_app_score_when_no_bch_hit::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as min_app_score_when_no_bch_hit,
+	concat('<b>Бюро 3 от:</b> ', coalesce(dosp.min_okb_score::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as min_okb_score,
+	concat('<b>Бюро 1 до:</b> ', coalesce(dosp.max_score::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as max_score,
+	concat('<b>Бюро 2 до:</b> ', coalesce(dosp.max_bch_score::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as max_bch_score,
+	concat('<b>Application Score до:</b> ', coalesce(dosp.max_app_score_when_no_bch_hit::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as max_app_score_when_no_bch_hit,
+	array_agg(concat('<b>Рестрикшен на продукте ',dpcs.product_code,':</b> ', coalesce(restrictions_acdb, 'УДАЛИТЬ СТРОКУ!!!'), '</b>')) over(partition by doc.code) as rest_product,
+	concat('<b>Бюро 3 до:</b> ', coalesce(dosp.max_okb_score::varchar, 'УДАЛИТЬ СТРОКУ!!!'), '<br>') as max_okb_score,
+	concat('<b>Гео доступности:</b> ', 
+			case
+				when cardinality(doc.geo) != 0 then coalesce(concat(cardinality(doc.geo)::varchar, ' (Включая', left((case when '7700000000000' = any(doc.geo) then ' MСК;' else '' end||
+			case when '5000000000000' = any(doc.geo) then ' MO;'  else '' end||
+			case when '7800000000000' = any(doc.geo) then ' СПБ;' else '' end||
+			case when '4700000000000' = any(doc.geo) then ' ЛО;'  else '' end), 
+				char_length(case when '7700000000000' = any(doc.geo) then ' MСК;' else '' end||
+							case when '5000000000000' = any(doc.geo) then ' MO;'  else '' end||
+							case when '7800000000000' = any(doc.geo) then ' СПБ;' else '' end||
+							case when '4700000000000' = any(doc.geo) then ' ЛО;'  else '' end)-1),
+			')'), 'Вся РФ')
+				else 'Вся РФ'
+			end,
+			'<br>') as geo_,
+	concat('<b>Гео фактического проживания:</b> ', 
+			case 
+				when cardinality(doc.geo_fact) = 0 then 'УДАЛИТЬ СТРОКУ !!!'
+				else coalesce(cardinality(doc.geo_fact)::varchar, 'УДАЛИТЬ СТРОКУ !!!')
+			end,
+			'<br>') as geo_fact, 
+	concat('<b>Гео регистрации:</b> ', 
+			case 
+				when cardinality(doc.geo_reg) = 0 then 'УДАЛИТЬ СТРОКУ !!!'
+				else coalesce(cardinality(doc.geo_reg)::varchar, 'УДАЛИТЬ СТРОКУ !!!')
+			end,
+			'<br>') as geo_reg, 
+	concat('<b>Исключения гео доступности:</b> ', 
+			case 
+				when doc.geo_del_delivery = '{9999999999999}' then 'УДАЛИТЬ СТРОКУ !!!'
+				else coalesce(cardinality(doc.geo_del_delivery)::varchar, 'УДАЛИТЬ СТРОКУ !!!')
+			end,
+			'<br>') as geo_del_delivery,		
+	concat('<b>Исключения гео регистрации:</b> ', coalesce(cardinality(doc.geo_del_reg)::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as geo_del_reg,
+	concat('<b>Исключения гео фактического проживания:</b> ', coalesce(cardinality(doc.geo_del_fact)::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as geo_del_fact,
+	concat('<b>Гео работы:</b> ', 
+			case 
+				when cardinality(doc.geo_job) = 0 then 'УДАЛИТЬ СТРОКУ !!!'
+				else coalesce(cardinality(doc.geo_job)::varchar, 'УДАЛИТЬ СТРОКУ !!!')
+			end,
+			'<br>') as geo_job, 
+	concat('<b>Исключения гео работы:</b> ', coalesce(cardinality(doc.geo_del_job)::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as geo_del_job,	
+	unnest(coalesce(marital_code, '{0}')) as marital_code,
+	concat('<b>Стаж работы:</b> ', coalesce(doc.min_date_start::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as min_date_start,
+	concat('<b>Стаж на последнем месте работы:</b> ', coalesce(doc.last_seniority_value::varchar, 'УДАЛИТЬ СТРОКУ !!!'),
+	case when doc.last_seniority_term_code = 1 then ' сек'
+		 when doc.last_seniority_term_code = 2 then ' мин'
+		 when doc.last_seniority_term_code = 3 then ' ч'
+		 when doc.last_seniority_term_code = 4 then ' дн'
+		 when doc.last_seniority_term_code = 5 then ' нед'
+		 when doc.last_seniority_term_code = 6 then ' мес'
+		 when doc.last_seniority_term_code = 7 then ' лет'
+		 else '' 
+	end, '<br>') as last_seniority_value,
+	unnest(coalesce(incomes_proof_code, '{0}')) as incomes_proof_code,
+	concat('<b>Период дедубликации:</b> '|| 
+	case when doc.double_check_date is null then '30 дней'
+		 when doc.double_check_date = -1 then 'Нет'
+		 else doc.double_check_date::varchar || ' дней'
+	end, '<br>') as double_check_date,
+	concat('<b>Коэффициент ручной закрутки в МПК:</b> ', coalesce(dosp.cr_sh2c::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as cr_sh2c, -- Коэффициент ручной закрутки в МПК: 1
+	concat('<b>Исключение из мобильного приложения:</b> '||
+	case when doc.app_offer = true then 'Да'
+		 else 'Нет'
+	end, '<br>') as app_offer,
+	concat('<b>Тип устройства для подбора:</b> ', coalesce(doc.device_type::varchar, 'Все'), '<br>') as device_type, -- Тип устройства для подбора: Справочник типов лежит тут dict.d_device_type.name. Если значение не заполнено, значит нет ограничений по типу устройства на подбор оффера.
+	concat('<b>Игноринг:</b> ', coalesce(dosp.scoring_ignoring_point::varchar||'%', 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as scoring_ignoring_point,
+	case when dosp.okb_111 = true then 'Не пропускает с <b>просрочками ОКБ (-111)</b><br>'
+		 else 'Пропускает с <b>просрочками Бюро 1 (-111)</b><br>'
+	end as okb_111,
+	case when dosp.nbki_overdue_1 = true then 'Не пропускает с <b>просрочками НБКИ (-1)</b><br>'
+		 else 'Пропускает с <b>просрочками Бюро 2 (-1)</b><br>'
+	end as nbki_overdue_1,
+	case when dosp.nbki_overdue_2 = true then 'Не пропускает с <b>просрочками НБКИ (-2)</b><br>'
+		 else 'Пропускает с <b>просрочками Бюро 2 (-2)</b><br>'
+	end as nbki_overdue_2,
+	case when dosp.nbki_overdue_4 = true then 'Не пропускает с <b>просрочками НБКИ (-4)</b><br>'
+		 else 'Пропускает с <b>просрочками Бюро 2 (-4)</b><br>'
+	end as nbki_overdue_4,
+	coalesce(split_part(split_part(restriction_acdb, '/*', 2), '*/', 1)|| '<br>') as restriction_acdb,
+	coalesce(split_part(split_part(hard_restrictions, '/*', 2), '*/', 1)|| '<br>') as hard_restrictions,
+	coalesce(split_part(split_part(soft_restrictions, '/*', 2), '*/', 1)|| '<br>') as soft_restrictions,
+	coalesce(dosp.soft_restrictions_point::varchar, 'УДАЛИТЬ СТРОКУ !!!', '<br>') as soft_restrictions_point,
+	case when docq.confirm_quota_max is not null and docq.mpk_api_quota_max is not null 
+		 then docq.confirm_quota_max::varchar||' кликов/'||docq.quota_period_type||' и '||docq.mpk_api_quota_max::varchar||' заявок/'||docq.quota_period_type
+		 when docq.mpk_api_quota_max is not null then docq.mpk_api_quota_max::varchar||' заявок/'||docq.quota_period_type
+		 when docq.confirm_quota_max is not null then docq.confirm_quota_max::varchar||' кликов/'||docq.quota_period_type
+		 else 'УДАЛИТЬ СТРОКУ !!!'
+	end as quota,
+	concat('<b>Квота на гео: </b>', coalesce(docqg.geo::varchar, 'УДАЛИТЬ СТРОКУ !!!', '</b>')) as geo_quota,--квота по гео
+	dpoco.product_code as product_code,
+	case when dpoco.is_refinance is true then dpoco.product_code::varchar
+		 else 'УДАЛИТЬ СТРОКУ !!!'
+	end as refin,
+	concat('<b>Наличие ИНН:</b> ', case when coalesce(doc.inn_required, false) then 'Требуется' else 'Не требуется' end, '<br>') as inn_required
+from dict.d_offer_catalog doc  
+left join dict.d_offer_scoring_properties dosp on dosp.offer_code = doc.code
+left join dict.d_product_type dpt on doc.product_type_code = dpt.code 
+left join dict.d_offer_catalog_quota docq on doc.code = docq.offer_code and docq.active_flag
+left join dict.d_offer_catalog_quota_geo docqg on doc.code = docqg.offer_code
+left join (select distinct product_code, offer_code, is_refinance from dict.d_product_offer_catalog_online) dpoco on doc.code = dpoco.offer_code 
+left join (select distinct restrictions_acdb, product_code from dict.d_product_catalog_settings) dpcs on dpcs.product_code = dpoco.product_code
+where doc.code in ()--- <<<<<<<<======================================================================<<<<<< ОФФЕР СЮДА<<<<<<<=======================
+order by doc.code desc
+)
+,t0 as (
+select 
+	code,
+	education_code,
+	job_type,
+	employer_type_code,
+	seniority_type,
+	incomes_proof_code,
+	marital_code,
+	product_code
+from main
+)
+,t1 as (
+select 
+	t0.code as code,
+	coalesce(det."name", 'УДАЛИТЬ!!!') as education_code,
+	coalesce(djp."name", 'УДАЛИТЬ!!!') as job_type,
+	coalesce(dett."name", 'УДАЛИТЬ!!!') as employer_type_code,
+	coalesce(deat."name", 'УДАЛИТЬ!!!') as seniority_type,
+	coalesce(dip."name", 'УДАЛИТЬ!!!') as incomes_proof_code,
+	coalesce(dms."name", 'УДАЛИТЬ!!!') as marital_code
+from t0
+left join dict.d_education_type det on t0.education_code::varchar = det.code::varchar
+left join dict.d_job_type djp on t0.job_type::varchar = djp.code::varchar
+left join dict.d_employer_type dett on t0.employer_type_code::varchar = dett.code::varchar
+left join dict.d_enterprise_activity_type deat on t0.seniority_type::varchar = deat.code::varchar
+left join dict.d_income_proof dip on t0.incomes_proof_code::varchar = dip.code::varchar
+left join dict.d_marital_status dms on t0.marital_code::varchar = dms.code::varchar
+left join dict.d_product_catalog_settings dpcs on t0.product_code = dpcs.product_code
+),
+t2 as (
+select code,
+	array_agg(distinct education_code) as education_code,
+	array_agg(distinct job_type) as job_type,
+	array_agg(distinct employer_type_code) as employer_type_code,
+	array_agg(distinct seniority_type) as seniority_type,
+	array_agg(distinct incomes_proof_code) as incomes_proof_code,
+	array_agg(distinct marital_code) as marital_code
+from t1
+group by code
+)
+select 
+	m.code, 
+	--partner_code,
+	'<br>',
+	product_type_code,
+	age_min,
+	age_max,
+	incomes_from,
+	requested_amount_from,
+	requested_amount_to,
+	term_min,
+	term_max,
+	concat('<b>Образование:</b> ', t2.education_code, '<br>') as education_code,
+	expenses_to,
+	kfn,
+	kfn_probably,
+	concat('<b>Тип работы:</b> ', t2.job_type, '<br>') as job_type,
+	concat('<b>Тип работодателя:</b> ', t2.employer_type_code, '<br>') as employer_type_code,
+	concat('<b>Сферы деятельности:</b> ', t2.seniority_type, '<br>') as seniority_type,
+	min_score,
+	min_bch_score,
+	min_app_score_when_no_bch_hit,
+	min_okb_score,
+	max_score,
+	max_bch_score,
+	max_app_score_when_no_bch_hit,
+	max_okb_score,
+	geo_,
+	geo_del_delivery,
+	geo_fact,
+	geo_del_fact,
+	geo_reg,
+	geo_del_reg,
+	geo_job,
+	geo_del_job,
+	concat('<b>Семейное положение:</b> ', t2.marital_code, '<br>') as marital_code,
+	min_date_start,
+	last_seniority_value,
+	concat('<b> Тип документа о подтверждении дохода:</b> ', t2.incomes_proof_code, '<br>') as incomes_proof_code,
+	double_check_date,
+	cascade_flag,
+	inn_required,
+	cr_sh2c,
+	app_offer,
+	device_type,
+	scoring_ignoring_point,
+	okb_111,
+	nbki_overdue_1,
+	nbki_overdue_2,
+	nbki_overdue_4,
+	concat('<b>Квота:</b> ', array_agg(distinct m.quota), '<br>') as quota,
+	geo_quota,
+	concat('<b>Рестрикшен на оффере:</b> <br>', coalesce(restriction_acdb::varchar, 'УДАЛИТЬ СТРОКУ !!!')) as restriction_acdb,
+	concat('<b>Soft рестрикшен:</b> <br>', coalesce(soft_restrictions::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as soft_restrictions,
+	concat('<b>Hard рестрикшен:</b> <br>', coalesce(hard_restrictions::varchar, 'УДАЛИТЬ СТРОКУ !!!'), '<br>') as hard_restrictions,
+	concat('<b>Soft рестрикшен игноринг:</b> ', soft_restrictions_point, '<br>'),
+	concat('<b>Активные продукты:</b> ', array_agg(distinct product_code), '<br>') as product_code,
+	rest_product,
+	concat('<b>Рефинансирование продукта:</b> ', array_agg(distinct refin), '<br>') as is_refinance,
+	'<br>',
+	'<br>',
+	'<i>Настройки от: '||current_date||'</i>'
+from main m
+left join t2 on m.code = t2.code
+group by m.code, product_type_code, age_min, age_max, incomes_from, 
+requested_amount_from, requested_amount_to, expenses_to, kfn, kfn_probably, term_min,
+term_max, min_score, min_bch_score,min_app_score_when_no_bch_hit, min_okb_score,
+max_score, max_bch_score, max_app_score_when_no_bch_hit, max_okb_score, geo_, geo_del_delivery,
+geo_fact, geo_del_fact, geo_reg, geo_del_reg, geo_job, geo_del_job, min_date_start,
+last_seniority_value, double_check_date, cr_sh2c, app_offer, device_type, scoring_ignoring_point,
+okb_111, nbki_overdue_1, nbki_overdue_2, nbki_overdue_4, restriction_acdb, hard_restrictions,
+soft_restrictions, soft_restrictions_point, geo_quota, t2.education_code, t2.job_type, t2.employer_type_code,
+t2.marital_code, t2.incomes_proof_code, t2.seniority_type, m.rest_product, cascade_flag, inn_required

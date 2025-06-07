@@ -1,0 +1,13 @@
+select 
+dpc."name" as "Банк", dpt."name" as "Тип продукта" ,
+dosp.offer_code as "Код оффера",
+array_agg(dpoco.product_code) as "Активные продукты", 
+dosp.cr_sh2c as "Закрутка"
+from dict.d_offer_scoring_properties dosp
+left join dict.d_offer_catalog doc on doc.code = dosp.offer_code 
+left join dict.d_partner_catalog dpc on dpc.code = doc.partner_code 
+left join dict.d_product_offer_catalog_online dpoco on dpoco.partner_code = doc.partner_code 
+and doc.code = dpoco.offer_code 
+left join dict.d_product_type dpt on dpt.code = doc.product_type_code 
+where dosp.cr_sh2c != 1 and dpt."name" is not null and doc.active_flag is true and dpoco.product_code is not null
+group by dpc."name", dpt."name", dosp.offer_code,dosp.cr_sh2c

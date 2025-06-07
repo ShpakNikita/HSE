@@ -1,0 +1,7 @@
+select distinct dpc.name, doc.code, docq.month_day , docq.weekday , docq."hour" , docq.all_quota_max , docq .confirm_quota_max , docq.active_flag, doc.active_flag, dpt."name" 
+from dict.d_offer_catalog_quota docq 
+left join dict.d_offer_catalog doc on doc.code = docq.offer_code 
+left join dict.d_product_offer_catalog_online dpoco on dpoco.offer_code  = doc.code  
+left join dict.d_partner_catalog dpc on dpc.code = doc.partner_code 
+left join dict.d_product_type dpt on dpt.code = doc.product_type_code 
+where dpoco.product_code is not null

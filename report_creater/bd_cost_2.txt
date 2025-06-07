@@ -1,0 +1,24 @@
+---Скрипт проверки закрутки каталога---
+select 
+st.offer_id as "Код оффера", 
+st.product_id as "Код продукта",
+st.affiliate_sub4 "Тип продукта",
+st."cost" as "Закрутка",
+st."conversion" as "Конверсия (для депозитов)",
+st.productplace as "Позиция продукта (для МФО)"
+from statistica.manual_offer_pay_catalog st
+where 
+(offer_category_id in (16,102) or --rko
+offer_category_id in (8) or --МФО
+offer_category_id in (14,114) or --Вклады
+offer_category_id in (20) or --Дебетовые карты
+offer_category_id in (12) or --Ипотека 
+offer_category_id in (4) or --Кредитные карты
+offer_category_id in (2) or --ПК
+affiliate_sub4 ilike 'microloan_pts' or
+affiliate_sub4 ilike 'microloan_zero' or
+affiliate_sub4 ilike 'microloan_besprots' or
+affiliate_sub4 ilike 'microloan_mob' or
+affiliate_sub4 ilike 'microloan_mob_pts'
+ ) and ("cost" is not null or "conversion" is not null or productplace is not null)
+order by st.affiliate_sub4, "cost" desc

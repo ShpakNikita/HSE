@@ -1,0 +1,54 @@
+select dpc.name bank_name,
+	   dpt.name product_type_name,
+	   doc.code,
+	   case 
+	   	when doc.geo = '{9999999999999}' then null
+	   	when doc.geo = '{}' then null
+	   	else cardinality(doc.geo)
+	   end geо,
+	   case 
+	   	when doc.geo_del_delivery = '{9999999999999}' then null
+	   	when doc.geo_del_delivery = '{}' then null
+	   	else cardinality(doc.geo_del_delivery)
+	   end geo_del_delivery,
+	   case 
+	   	when doc.geo_fact = '{9999999999999}' then null
+	   	when doc.geo_fact = '{}' then null
+	   	else cardinality(doc.geo_fact)
+	   end geo_fact,
+	   case 
+	   	when doc.geo_del_fact = '{9999999999999}' then null
+	   	when doc.geo_del_fact = '{}' then null
+	   	else cardinality(doc.geo_del_fact)
+	   end geo_del_fact,
+	   case 
+	   	when doc.geo_reg = '{9999999999999}' then null
+	   	when doc.geo_reg = '{}' then null
+	   	else cardinality(doc.geo_reg)
+	   end geo_reg,
+	   case 
+	   	when doc.geo_del_reg = '{9999999999999}' then null
+	   	when doc.geo_del_reg = '{}' then null
+	   	else cardinality(doc.geo_del_reg)
+	   end geo_del_reg,
+	   case 
+	   	when doc.geo_job = '{9999999999999}' then null
+	   	when doc.geo_job = '{}' then null
+	   	else cardinality(doc.geo_job)
+	   end geo_job,
+	   case 
+	   	when doc.geo_del_job = '{9999999999999}' then null
+	   	when doc.geo_del_job = '{}' then null
+	   	else cardinality(doc.geo_del_job)
+	   end geo_del_job
+from dict.d_offer_catalog doc 
+left join dict.d_partner_catalog dpc on doc.partner_code = dpc.code
+left join dict.d_product_offer_catalog_online dpoco on doc.code = dpoco.offer_code
+left join dict.d_product_type dpt on doc.product_type_code = dpt.code
+where doc.active_flag = true
+and dpoco.product_code is not null
+group by dpc.name, dpt.name, doc.geo, doc.geo_reg, doc.geo_fact, doc.geo_del_delivery, 
+		 doc.geo_del_reg, doc.geo_del_fact, doc.geo_job, doc.geo_del_job, doc.product_type_code, doc.code, 
+		 cardinality(doc.geo), cardinality(doc.geo_fact), cardinality(doc.geo_reg), cardinality(geo_del_delivery), 
+		 cardinality(geo_del_reg), cardinality(geo_del_fact), cardinality(geo_job), cardinality(geo_del_job)
+order by product_type_name, bank_name

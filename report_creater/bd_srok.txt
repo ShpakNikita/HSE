@@ -1,0 +1,35 @@
+with t as (
+select
+distinct 
+	doc.partner_code, 
+	dpoco.offer_code,
+	dpoco.product_code,
+	dpoco.product_name, 
+	dpoco.product_type_code, 
+	dpoco.term_min as term_min_product,
+	dpoco.term_max as term_max_product,
+	dpoco.amount_min as amount_min_product,
+	dpoco.amount_max as amount_max_product,
+	coalesce(doc.term_min, -1)*'1 month'::interval as term_min_offer,
+	coalesce(doc.term_max, 1000)*'1 month'::interval as term_max_offer,
+	coalesce(doc.requested_amount_from, -1) as amount_min_offer,
+	coalesce(doc.requested_amount_to, 999999999) as amount_max_offer
+from
+	dict.d_product_offer_catalog_online dpoco
+left join dict.d_offer_catalog doc on
+	doc.code = dpoco.offer_code
+where
+	doc.active_flag is true)
+--- проверка на срок ---
+select distinct dpc."name", dpt."name", offer_code,product_code, product_name, term_max_product, term_max_offer  from t 
+left join dict.d_partner_catalog dpc on dpc.code = t.partner_code
+left join dict.d_product_type dpt on dpt.code = t.product_type_code
+where  
+term_max_product> term_max_offer
+--- проверка на сумму ---
+--select dpc."name", dpt."name", offer_code,product_code, product_name, amount_max_product, amount_max_offer  from t 
+--left join dict.d_partner_catalog dpc on dpc.code = t.partner_code
+--left join dict.d_product_type dpt on dpt.code = t.product_type_code
+--where amount_max_product-2000 > amount_max_offer
+----- сравнение срока и суммы по офферу и продукту -----
+order by dpt."name", dpc."name" , product_name 
